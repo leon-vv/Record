@@ -34,6 +34,9 @@ data Implement : List Type -> (Type -> Type) -> Type where
 	ImpNil : Implement [] f
 	ImpCons : f x -> Implement xs f -> Implement (x::xs) f
 
+schemaImp : Schema -> (Type -> Type) -> Type
+schemaImp s f = Implement (typesOfSchema s) f
+
 data ShowD : (t : Type) -> Type where
 	ShowFun : (t -> String) -> ShowD t
 
@@ -52,10 +55,10 @@ infixl 15 ::=
 syntax "{" [x] "}" = x RecNil
 
 total
-showRecord : Record sc -> {auto ip : Implement (typesOfSchema sc) ShowD} -> String
+showRecord : Record sc -> {auto ip : schemaImp sc ShowD} -> String
 showRecord {ip} rec = "{ " ++ (aux rec ip) ++ " }"
   where
-    aux : Record sc -> Implement (typesOfSchema sc) ShowD -> String 
+    aux : Record sc -> schemaImp sc ShowD -> String 
     aux RecNil _ = ""
     aux (RecCons k v RecNil) (ImpCons (ShowFun f) _) = k ++ " ::= " ++ (f v)
     aux (RecCons k v recRst) (ImpCons (ShowFun f) impRest) =
