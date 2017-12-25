@@ -1,0 +1,6 @@
+package record_
+
+pkgs = effects, idrisscript
+
+modules = Record
+        , Record.JS
