@@ -82,9 +82,11 @@ doubleFromJSD = FromJSFun f
       f {jst=JSNumber} v = fromFun v
       f _  = Nothing
 
+
 total
+export
 objectToRecord : {auto fp : schemaImp schema FromJSD}
-    -> JSValue (JSObject "Object")
+    -> JSValue (JSObject constr)
     -> JS_IO (Maybe (Record schema))
 objectToRecord {schema=Nil} _ = pure (Just RecNil)
 objectToRecord {schema=((k, t)::rst)} {fp=(ImpCons (FromJSFun f) impRest)} obj =
@@ -101,16 +103,20 @@ private
 log : a -> JS_IO ()
 log v = jscall "console.log(%0)" (Ptr -> JS_IO ()) (believe_me v)
 
+private
+error : a -> b
+error obj = believe_me (log obj)
 
-%inline
 partial
 export
 objectToRecordUnsafe : {auto fp : schemaImp schema FromJSD} -> JSRef -> JS_IO (Record schema)
-objectToRecordUnsafe {fp} ref = do log ref
-                                   (JSObject "Object" ** obj) <- pack ref
-                                   Just rec <- objectToRecord {fp=fp} obj
-                                   log rec
-                                   pure rec
-
-
+objectToRecordUnsafe {fp} {schema} ref = do
+                                   val <- pack ref
+                                   case val of
+                                        (JSObject _ ** obj) => 
+                                             do rec <- objectToRecord {schema=schema} {fp=fp} obj
+                                                case rec of
+                                                    Just rec => pure rec
+                                                    _ => error "objectToRecordUnsafe: could not convert to schema"
+                                        _ => error "objectRecordUnsafe: JS reference is not an object"
 
