@@ -42,8 +42,8 @@ fromFun {a} {b} v = Just (fromJS v {from=a} {to=b})
 
 %hint
 total
-ptrFromJSD : FromJSD JSRef
-ptrFromJSD  = FromJSFun (\v => Just (unpack v))
+refFromJSD : FromJSD JSRef
+refFromJSD  = FromJSFun (\v => Just (unpack v))
 
 %hint
 total
@@ -99,7 +99,7 @@ objectToRecord {schema=((k, t)::rst)} {fp=(ImpCons (FromJSFun f) impRest)} obj =
         idrisVal <- (f {jst=t} val)
         pure (RecCons k idrisVal rec))
 
-private
+export
 log : a -> JS_IO ()
 log v = jscall "console.log(%0)" (Ptr -> JS_IO ()) (believe_me v)
 
