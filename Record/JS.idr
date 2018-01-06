@@ -29,7 +29,7 @@ doubleToJSD = ToJSFun (\d => pure (toJS d {to=JSNumber}))
 stringToJSD : ToJSD String
 stringToJSD = ToJSFun (\s => pure (toJS s {to=JSString}))
 
-recordToObject : Record sc -> {auto jp : schemaImp sc ToJSD} -> JS_IO (JSValue (JSObject "Object"))
+recordToObject : Record sc -> {auto jp : SchemaImp sc ToJSD} -> JS_IO (JSValue (JSObject "Object"))
 recordToObject RecNil = Objects.empty
 recordToObject (RecCons k v recRest) {jp=(ImpCons (ToJSFun f) impRest)} =
   do obj <- recordToObject recRest {jp=impRest}
@@ -89,7 +89,7 @@ doubleFromJSD = FromJSFun f
 
 total
 export
-objectToRecord : {auto fp : schemaImp schema FromJSD}
+objectToRecord : {auto fp : SchemaImp schema FromJSD}
     -> JSValue (JSObject constr)
     -> JS_IO (Maybe (Record schema))
 objectToRecord {schema=Nil} _ = pure (Just RecNil)
@@ -113,7 +113,7 @@ error obj = believe_me (log obj)
 
 partial
 export
-objectToRecordUnsafe : {auto fp : schemaImp schema FromJSD} -> JSRef -> JS_IO (Record schema)
+objectToRecordUnsafe : {auto fp : SchemaImp schema FromJSD} -> JSRef -> JS_IO (Record schema)
 objectToRecordUnsafe {fp} {schema} ref = do
                                    val <- pack ref
                                    case val of
