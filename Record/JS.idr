@@ -12,6 +12,12 @@ data ToJSD : Type -> Type where
   ToJSFun : ((from : t) -> JS_IO (JSValue to)) -> ToJSD t
 
 %hint
+stringify : ToJSD a -> ShowD a
+stringify (ToJSFun f) = ShowFun (\a => unsafePerformIO $ do
+  val <- f a
+  jscall "JSON.stringify(%0)" (JSRef -> JS_IO String) $ unpack val)
+                        
+%hint
 intToJSD : ToJSD Int
 intToJSD = ToJSFun (\i => pure (toJS i {to=JSNumber}))
 
@@ -33,12 +39,10 @@ recordToObject (RecCons k v recRest) {jp=(ImpCons (ToJSFun f) impRest)} =
 data FromJSD : Type -> Type where
   FromJSFun : ({jst:JSType} -> JSValue jst -> Maybe to) -> FromJSD to
 
-
 %hint
 total
 fromFun : FromJS a b => JSValue a -> Maybe b
 fromFun {a} {b} v = Just (fromJS v {from=a} {to=b})
-
 
 %hint
 total

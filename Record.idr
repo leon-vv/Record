@@ -55,12 +55,45 @@ infixl 15 ::=
 syntax "{" [x] "}" = x RecNil
 
 total
-showRecord : Record sc -> {auto ip : schemaImp sc ShowD} -> String
-showRecord {ip} rec = "{ " ++ (aux rec ip) ++ " }"
-  where
-    aux : Record sc -> schemaImp sc ShowD -> String 
-    aux RecNil _ = ""
-    aux (RecCons k v RecNil) (ImpCons (ShowFun f) _) = k ++ " ::= " ++ (f v)
-    aux (RecCons k v recRst) (ImpCons (ShowFun f) impRest) =
-        k ++ " ::= " ++ (f v) ++ ", " ++ (aux recRst impRest)
- 
+toStringList : Record sch -> {auto ip: schemaImp sch ShowD} -> List (String, String)
+toStringList RecNil = []
+toStringList (RecCons k v RecNil) {ip=(ImpCons (ShowFun f) _)} = [(k, f v)]
+toStringList (RecCons k v recRest) {ip=(ImpCons (ShowFun f) impRest)} = (k, f v) :: (toStringList {ip=impRest} recRest)
+
+-- Join string using separator
+private
+joinStr : List String -> (sep : String) -> String
+joinStr Nil _ = ""
+joinStr [s] _ = s
+joinStr (s::rest) sep = s ++ sep ++ (joinStr rest sep)
+
+record ToStringConfig where
+  constructor MkToStringConfig
+  prefix_ : String
+  betweenFieldAndValue : String
+  betweenCons : String
+  suffix : String
+
+total
+export
+-- Prefix, separator, suffix
+showRecordCustom : Record sc -> {auto ip: schemaImp sc ShowD} -> ToStringConfig -> String
+showRecordCustom {ip} rec conf = let pre = prefix_ conf
+                           in let fieldAndVal = betweenFieldAndValue conf
+                           in let cons = betweenCons conf
+                           in let suffix = suffix conf
+                           in let lst = toStringList {ip=ip} rec
+                           in pre ++ (joinStr (map (\(k, v) => k ++ fieldAndVal ++ v) lst) cons) ++ suffix
+
+
+total
+export
+showRecord : Record sc -> {auto ip: schemaImp sc ShowD} -> String
+showRecord {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "{" " ::= " ", " "}")
+  
+total
+export
+showRecordAssignment : Record sc -> {auto ip: schemaImp sc ShowD} -> String
+showRecordAssignment {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "" " = " ", " "")
+
+
