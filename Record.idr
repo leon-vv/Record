@@ -37,12 +37,14 @@ data Implement : List Type -> (Type -> Type) -> Type where
 SchemaImp : Schema -> (Type -> Type) -> Type
 SchemaImp s f = Implement (typesOfSchema s) f
 
+-- Data version of show
 data ShowD : (t : Type) -> Type where
 	ShowFun : (t -> String) -> ShowD t
 
 %hint
-showDAll : Show a => ShowD a
-showDAll = ShowFun (show {ty=a})
+showdAll : Show a => ShowD a
+showdAll = ShowFun (show {ty=a})
+
 
 infixl 10 &
 (&) : (Record d -> Record b) -> (Record c -> Record d) -> Record c -> Record b
