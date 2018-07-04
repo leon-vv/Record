@@ -93,9 +93,24 @@ export
 showRecord : Record sc -> {auto ip: SchemaImp sc ShowD} -> String
 showRecord {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "{" " ::= " ", " "}")
   
-total
+total 
 export
 showRecordAssignment : Record sc -> {auto ip: SchemaImp sc ShowD} -> String
 showRecordAssignment {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "" " = " ", " "")
+
+total
+getKey : SubElem (k, t) sch -> Record sch -> t
+getKey Z (RecCons key value _) = value
+getKey (S inList) (RecCons _ _ rest) = getKey inList rest
+
+total
+export
+getSubRecord : {auto sl : SubList to from} -> Record from -> Record to
+getSubRecord {sl=SubNil} _ = RecNil
+getSubRecord {sl=InList subElem subList} {to=(key, type)::rest} rec =
+  RecCons key (getKey subElem rec) (getSubRecord {sl=subList} rec {to=rest})
+
+
+
 
 
