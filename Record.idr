@@ -4,6 +4,7 @@ import Data.List.Quantifiers
 import Effects
 
 %access public export
+%default total
 
 Schema : Type
 Schema = List (String, Type)
@@ -56,7 +57,6 @@ infixl 15 ::=
 
 syntax "{" [x] "}" = x RecNil
 
-total
 toStringList : Record sch -> {auto ip: SchemaImp sch ShowD} -> List (String, String)
 toStringList RecNil = []
 toStringList (RecCons k v RecNil) {ip=(ImpCons (ShowFun f) _)} = [(k, f v)]
@@ -76,7 +76,6 @@ record ToStringConfig where
   betweenCons : String
   suffix : String
 
-total
 export
 -- Prefix, separator, suffix
 showRecordCustom : Record sc -> {auto ip: SchemaImp sc ShowD} -> ToStringConfig -> String
@@ -88,22 +87,18 @@ showRecordCustom {ip} rec conf = let pre = prefix_ conf
                            in pre ++ (joinStr (map (\(k, v) => k ++ fieldAndVal ++ v) lst) cons) ++ suffix
 
 
-total
 export
 showRecord : Record sc -> {auto ip: SchemaImp sc ShowD} -> String
 showRecord {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "{" " ::= " ", " "}")
   
-total 
 export
 showRecordAssignment : Record sc -> {auto ip: SchemaImp sc ShowD} -> String
 showRecordAssignment {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "" " = " ", " "")
 
-total
 getKey : SubElem (k, t) sch -> Record sch -> t
 getKey Z (RecCons key value _) = value
 getKey (S inList) (RecCons _ _ rest) = getKey inList rest
 
-total
 export
 getSubRecord : {auto sl : SubList to from} -> Record from -> Record to
 getSubRecord {sl=SubNil} _ = RecNil
