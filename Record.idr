@@ -105,7 +105,40 @@ getSubRecord {sl=SubNil} _ = RecNil
 getSubRecord {sl=InList subElem subList} {to=(key, type)::rest} rec =
   RecCons key (getKey subElem rec) (getSubRecord {sl=subList} rec {to=rest})
 
+public export
+replaceType : (sch:Schema) -> SubElem (k, t) sch -> Type -> Schema
+replaceType ((k, t)::rest) Z newType = (k, newType)::rest
+replaceType (hd::rest) (S se) newType = hd::(replaceType rest se newType)
 
+export
+update : {auto se: SubElem (k, t) sch} ->
+         (k:String) ->
+         (t -> a) ->
+         Record sch ->
+         Record (replaceType sch se a)
+update {se=Z} _ f (RecCons k val rest) = RecCons k (f val) rest
+update {se=S sub} k1 f (RecCons k2 val rest) = RecCons k2 val (update {se=sub} k1 f rest)
 
+export
+tryUpdate :
+  {auto se: SubElem (k, t) sch} ->
+  (k:String) ->
+  (t -> Maybe a) ->
+  Record sch ->
+  Maybe (Record (replaceType sch se a))
+tryUpdate {se=Z} _ f (RecCons k val rest) = (\upd => RecCons k upd rest) <$> (f val)
+tryUpdate {se=S sub} k1 f (RecCons k2 val rest) = (\upd => RecCons k2 val upd) <$> (tryUpdate {se=sub} k1 f rest)
+
+public export
+removeKeyInSchema : Schema -> String -> Schema
+removeKeyInSchema [] _ = []
+removeKeyInSchema ((k1, val)::rest) k2 = if k1 == k2 then rest
+                                                     else (k1, val)::(removeKeyInSchema rest k2)
+export
+removeKey : Record sch -> (key:String) -> Record (removeKeyInSchema sch key)
+removeKey RecNil _ = RecNil
+removeKey (RecCons k1 val rest) k2 with (k1 == k2)
+  | True = rest
+  | False = RecCons k1 val (removeKey rest k2)
 
 
