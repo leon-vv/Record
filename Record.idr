@@ -6,110 +6,117 @@ import Effects
 %access public export
 %default total
 
+||| A schema lists the keys of the record and the corresponding type.
+||| Some terminology I use:
+||| The first value of the tuple is called a KEY.
+||| The second value of the tuple is called a VALUE (corresponding to the KEY).
+||| The tuple itself is called a FIELD (of the record).
 Schema : Type
 Schema = List (String, Type)
 
+||| All the types present in the schema.
 typesOfSchema : Schema -> List Type
-typesOfSchema sc = map snd sc
+typesOfSchema = map snd
 
+||| A record is either the empty record,
+||| or it is an existing record with another field prepended to it.
 data Record : Schema -> Type where
 	RecNil : Record Nil
 	RecCons : (key:String) -> (val : t) -> Record lst -> Record ((key, t)::lst)
 
-data Useless : Type where I : Useless
-
-typeAtKey : Schema -> String -> Type
-typeAtKey Nil _ = Useless
-typeAtKey ((k', t)::rest) k = if (k' == k) then t else (typeAtKey rest k)
-
 infixl 10 ..
 
-(..) : Record keyMap -> (k : String) -> typeAtKey keyMap k
-(..) RecNil k = I
-(..) (RecCons key val rest) k with (key == k)
-	| True = val
-	| False = rest .. k
+||| Access a value of the record using the key.
+||| See comment next to the (&) function for an example.
+(..) : Record sch -> (k:String) -> {auto se: SubElem (k, t) sch}  -> t
+(..) {se=Z} (RecCons _ val _) _ = val
+(..) {se=S seRest} (RecCons _ _ recRest) k = (..) {se=seRest} recRest k
 
-
-data Implement : List Type -> (Type -> Type) -> Type where
-	ImpNil : Implement [] f
-	ImpCons : f x -> Implement xs f -> Implement (x::xs) f
-
+||| All types of a schema implement a certain 
+||| interface. 
 SchemaImp : Schema -> (Type -> Type) -> Type
-SchemaImp s f = Implement (typesOfSchema s) f
-
--- Data version of show
-data ShowD : (t : Type) -> Type where
-	ShowFun : (t -> String) -> ShowD t
-
-%hint
-showdAll : Show a => ShowD a
-showdAll = ShowFun (show {ty=a})
-
+SchemaImp s f = All f (typesOfSchema s)
 
 infixl 10 &
+
+||| Syntactic sugar.
+||| `let product = ({ "price" ::= 3.0 & "name" ::= "phone" })
+||| in putStrLn' (product .. "name")`
 (&) : (Record d -> Record b) -> (Record c -> Record d) -> Record c -> Record b
 (&) rf1 rf2 = (\r => rf1 (rf2 r))
 
 infixl 15 ::=
+
+||| Syntactic sugar. See comment next to (&) function.
 (::=) : {t:Type} -> (s:String) -> (x:t) -> Record xs -> Record ((s,t)::xs)
 (::=) s v = RecCons s v
 
 syntax "{" [x] "}" = x RecNil
 
-toStringList : Record sch -> {auto ip: SchemaImp sch ShowD} -> List (String, String)
+||| Convert the record to a list of string tuples. The 'ip' argument
+||| is neccessary to prove that all type of the schema can be converted.
+toStringList : Record sch -> {auto ip: SchemaImp sch Show} -> List (String, String)
 toStringList RecNil = []
-toStringList (RecCons k v RecNil) {ip=(ImpCons (ShowFun f) _)} = [(k, f v)]
-toStringList (RecCons k v recRest) {ip=(ImpCons (ShowFun f) impRest)} = (k, f v) :: (toStringList {ip=impRest} recRest)
+toStringList (RecCons k v RecNil) {ip=[s]} = [(k, show v)]
+toStringList (RecCons k v recRest) {ip=s::showRest} = (k, show v) :: (toStringList {ip=showRest} recRest)
 
 -- Join string using separator
 private
 joinStr : List String -> (sep : String) -> String
-joinStr Nil _ = ""
-joinStr [s] _ = s
-joinStr (s::rest) sep = s ++ sep ++ (joinStr rest sep)
+joinStr lst sep = concat $ intersperse sep lst
 
+||| This module contains a few functions to convert records to a string
+||| while abstracting over all the separators used. This can be useful
+||| to for example convert a record to JSON.
+||| To convert a record to the text you would type in using the (::=) and (&) functions
+||| you could use `MkToStringConfig "{" " ::= " " & " "}"`
 record ToStringConfig where
   constructor MkToStringConfig
   prefix_ : String
-  betweenFieldAndValue : String
+  betweenKeyAndValue : String
   betweenCons : String
   suffix : String
 
+||| Convert a record to a string according to the configuration.
 export
--- Prefix, separator, suffix
-showRecordCustom : Record sc -> {auto ip: SchemaImp sc ShowD} -> ToStringConfig -> String
+showRecordCustom : Record sc -> {auto ip: SchemaImp sc Show} -> ToStringConfig -> String
 showRecordCustom {ip} rec conf = let pre = prefix_ conf
-                           in let fieldAndVal = betweenFieldAndValue conf
+                           in let fieldAndVal = betweenKeyAndValue conf
                            in let cons = betweenCons conf
                            in let suffix = suffix conf
                            in let lst = toStringList {ip=ip} rec
                            in pre ++ (joinStr (map (\(k, v) => k ++ fieldAndVal ++ v) lst) cons) ++ suffix
 
 
-export
-showRecord : Record sc -> {auto ip: SchemaImp sc ShowD} -> String
-showRecord {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "{" " ::= " ", " "}")
-  
-export
-showRecordAssignment : Record sc -> {auto ip: SchemaImp sc ShowD} -> String
-showRecordAssignment {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "" " = " ", " "")
+-- All Show (typesOfSchema sch) => Show (Record sch) where
 
-getKey : SubElem (k, t) sch -> Record sch -> t
-getKey Z (RecCons key value _) = value
-getKey (S inList) (RecCons _ _ rest) = getKey inList rest
+||| Convert a record to a string using `MkToStringConfig "{" " ::= " " & " "}"`.
+||| This results in the same string you would type in using the (&) and (::=) functions.
+export
+showRecord : Record sc -> {auto ip: SchemaImp sc Show} -> String
+showRecord {ip} rec = showRecordCustom rec {ip=ip} (MkToStringConfig "{" " ::= " " & " "}")
 
+private
+getType : SubElem (k, t) sch -> Record sch -> t
+getType Z (RecCons key value _) = value
+getType (S inList) (RecCons _ _ rest) = getType inList rest
+
+||| We can project a record to a smaller record if the original schema
+||| contains all the fields of the smaller record.
 export
 getSubRecord : {auto sl : SubList to from} -> Record from -> Record to
 getSubRecord {sl=SubNil} _ = RecNil
 getSubRecord {sl=InList subElem subList} {to=(key, type)::rest} rec =
-  RecCons key (getKey subElem rec) (getSubRecord {sl=subList} rec {to=rest})
+  RecCons key (getType subElem rec) (getSubRecord {sl=subList} rec {to=rest})
 
+||| Replace the type corresponding to a key.
 public export
 replaceType : (sch:Schema) -> SubElem (k, t) sch -> Type -> Schema
 replaceType ((k, t)::rest) Z newType = (k, newType)::rest
 replaceType (hd::rest) (S se) newType = hd::(replaceType rest se newType)
 
+||| Update the value corresponding to a certain key.
+||| Todo: maybe add some syntactic sugar?
 export
 update : {auto se: SubElem (k, t) sch} ->
          (k:String) ->
@@ -119,6 +126,8 @@ update : {auto se: SubElem (k, t) sch} ->
 update {se=Z} _ f (RecCons k val rest) = RecCons k (f val) rest
 update {se=S sub} k1 f (RecCons k2 val rest) = RecCons k2 val (update {se=sub} k1 f rest)
 
+||| Try to update the value corresponding to a certain key.
+||| Return nothing if the conversion failed. 
 export
 tryUpdate :
   {auto se: SubElem (k, t) sch} ->
@@ -129,16 +138,19 @@ tryUpdate :
 tryUpdate {se=Z} _ f (RecCons k val rest) = (\upd => RecCons k upd rest) <$> (f val)
 tryUpdate {se=S sub} k1 f (RecCons k2 val rest) = (\upd => RecCons k2 val upd) <$> (tryUpdate {se=sub} k1 f rest)
 
+||| Remove the field corresponding to the key from the schema.
 public export
-removeKeyInSchema : Schema -> String -> Schema
-removeKeyInSchema [] _ = []
-removeKeyInSchema ((k1, val)::rest) k2 = if k1 == k2 then rest
-                                                     else (k1, val)::(removeKeyInSchema rest k2)
+removeFieldInSchema : Schema -> String -> Schema
+removeFieldInSchema [] _ = []
+removeFieldInSchema ((k1, val)::rest) k2 = if k1 == k2 then rest
+                                                     else (k1, val)::(removeFieldInSchema rest k2)
+
+||| Remove the field corresponding to the key from the record.
 export
-removeKey : Record sch -> (key:String) -> Record (removeKeyInSchema sch key)
-removeKey RecNil _ = RecNil
-removeKey (RecCons k1 val rest) k2 with (k1 == k2)
+removeField : Record sch -> (key:String) -> Record (removeFieldInSchema sch key)
+removeField RecNil _ = RecNil
+removeField (RecCons k1 val rest) k2 with (k1 == k2)
   | True = rest
-  | False = RecCons k1 val (removeKey rest k2)
+  | False = RecCons k1 val (removeField rest k2)
 
 
