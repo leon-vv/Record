@@ -1,7 +1,7 @@
 Record
 ============================
 
-This package provides a `Record` datatype for the Idris language. A record is a list of keys with a corresponding value. Thanks to the powerful type system of Idris it's possible to express a record type directly and write very general functions using it. For some inspiration check out my Event, FerryJS and Sql modules.
+This package provides a `Record` datatype for the Idris language. A record is a list of keys with a corresponding value. Thanks to the powerful type system of Idris it's possible to express a record type directly and write very general functions using it. For some inspiration check out the [Event](https://github.com/leon-vv/Event), [FerryJS](https://github.com/leon-vv/FerryJS) and [Sql](https://github.com/leon-vv/Sql) modules.
 
 Usage
 -----------------------------
